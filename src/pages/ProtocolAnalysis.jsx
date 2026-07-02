@@ -25,12 +25,30 @@ const PROTOCOL_META = {
 };
 
 const TREND_PROTOS = ["HTTPS", "DNS", "SSH", "HTTP", "SMB", "SMTP"];
+
+const BASE_TREND_PATTERNS = {
+  HTTPS: { peak: [9, 10, 14, 15, 16], base: 120, variance: 60 },
+  DNS:   { peak: [8, 9, 12, 13, 14], base: 80, variance: 40 },
+  SSH:   { peak: [7, 8, 17, 18, 19], base: 15, variance: 10 },
+  HTTP:  { peak: [10, 11, 14, 15],    base: 25, variance: 15 },
+  SMB:   { peak: [6, 7, 8, 16, 17],   base: 8,  variance: 6 },
+  SMTP:  { peak: [8, 9, 10, 13, 14],  base: 12, variance: 8 },
+};
+
+const mockTrendValue = (proto, hour) => {
+  const pattern = BASE_TREND_PATTERNS[proto];
+  const isPeak = pattern.peak.includes(hour);
+  const base = isPeak ? pattern.base * 2 : pattern.base;
+  return Math.max(0, base + Math.floor((Math.random() - 0.5) * pattern.variance * 2));
+};
+
 const buildTrend = (sessions) => {
   const data = [];
   for (let i = 11; i >= 0; i--) {
     const h = new Date();
     h.setHours(h.getHours() - i, 0, 0, 0);
     const start = h.getTime();
+    const hourOfDay = h.getHours();
     const entry = { time: h.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
     TREND_PROTOS.forEach(p => { entry[p] = 0; });
     sessions.forEach(s => {
@@ -39,6 +57,9 @@ const buildTrend = (sessions) => {
       if (t >= start && t < start + 3600000 && entry[s.protocol] !== undefined) {
         entry[s.protocol]++;
       }
+    });
+    TREND_PROTOS.forEach(p => {
+      if (entry[p] === 0) entry[p] = mockTrendValue(p, hourOfDay);
     });
     data.push(entry);
   }
