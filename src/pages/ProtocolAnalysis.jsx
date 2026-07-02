@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { api } from "@/api/netshieldClient";
 import {
-  Network, Activity, Shield, AlertTriangle, TrendingUp,
+  Network, Activity, Shield, AlertTriangle, TrendingUp, RefreshCw,
   ArrowUpDown, Eye, Zap, Lock, Globe, Radio
 } from "lucide-react";
 import PacketCapture from "@/components/dashboard/PacketCapture";
@@ -135,14 +135,22 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function ProtocolAnalysis() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const trendData = useMemo(() => buildTrend(sessions), [sessions]);
 
-  useEffect(() => {
-    api.entities.NetworkSession.list("-created_date", 100)
-      .then(setSessions)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const loadSessions = useCallback(async () => {
+    try {
+      const data = await api.entities.NetworkSession.list("-created_date", 100);
+      setSessions(data);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => { loadSessions(); }, [loadSessions]);
 
   // Build protocol stats from real session data only
   const protocolStats = useMemo(() => {
@@ -342,10 +350,18 @@ export default function ProtocolAnalysis() {
 
       {/* Protocol Detail Table */}
       <div className="bg-[hsl(222,44%,8%)] border border-[hsl(222,30%,14%)] rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-[hsl(222,30%,14%)]">
+        <div className="px-5 py-3 border-b border-[hsl(222,30%,14%)] flex items-center justify-between">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
             <Network className="w-4 h-4 text-cyan-400" /> Protocol Breakdown
           </h3>
+          <button
+            onClick={() => { setRefreshing(true); loadSessions(); }}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-secondary text-slate-400 border border-[hsl(222,30%,16%)] hover:bg-secondary/80 disabled:opacity-40"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
